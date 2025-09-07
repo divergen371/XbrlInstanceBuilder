@@ -1,31 +1,31 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
-        <IsPackable>false</IsPackable>
-        <GenerateProgramFile>false</GenerateProgramFile>
-        <IsTestProject>true</IsTestProject>
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <Compile Include="Tests.fs"/>
-    </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Tests.fs"/>
+  </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="../Xbrl.InstanceBuilder.fsproj"/>
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Xbrl.InstanceBuilder.fsproj"/>
+  </ItemGroup>
 
-    <ItemGroup>
-        <PackageReference Include="coverlet.collector" Version="6.0.4"/>
-        <PackageReference Include="FsCheck" Version="3.3.1"/>
-        <PackageReference Include="FsCheck.Xunit.v3" Version="3.3.1"/>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1"/>
-        <PackageReference Include="FsUnit.xUnit" Version="7.1.1"/>
-        <PackageReference Include="xunit.v3" Version="3.0.1"/>
-        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-    </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4"/>
+    <PackageReference Include="FsCheck" Version="3.3.1"/>
+    <PackageReference Include="FsCheck.Xunit.v3" Version="3.3.1"/>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1"/>
+    <PackageReference Include="FsUnit.xUnit" Version="7.1.1"/>
+    <PackageReference Include="xunit.v3" Version="3.0.1"/>
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
 
 </Project>

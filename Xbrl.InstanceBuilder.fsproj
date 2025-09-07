@@ -1,27 +1,27 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <!-- NuGet metadata -->
-        <PackageId>Xbrl.InstanceBuilder</PackageId>
-        <Version>0.2.0</Version>
-        <Authors>Atsushi</Authors>
-        <Company></Company>
-        <Description>F# library to build XBRL instance documents for EDINET (JP) with handy helpers for contexts, units, facts, namespaces, and schemaRef presets.</Description>
-        <RepositoryUrl>https://github.com/divergen371/XbrlInstanceBuilder</RepositoryUrl>
-        <PackageProjectUrl>https://github.com/divergen371/XbrlInstanceBuilder</PackageProjectUrl>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <PackageTags>XBRL;EDINET;F#;Instance;Xbrl;Finance;Japan</PackageTags>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
-        <IncludeSymbols>false</IncludeSymbols>
-        <IncludeSource>false</IncludeSource>
-        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- NuGet metadata -->
+    <PackageId>Xbrl.InstanceBuilder</PackageId>
+    <Version>0.2.0</Version>
+    <Authors>Atsushi</Authors>
+    <Company></Company>
+    <Description>F# library to build XBRL instance documents for EDINET (JP) with handy helpers for contexts, units, facts, namespaces, and schemaRef presets.</Description>
+    <RepositoryUrl>https://github.com/divergen371/XbrlInstanceBuilder</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/divergen371/XbrlInstanceBuilder</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>XBRL;EDINET;F#;Instance;Xbrl;Finance;Japan</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>false</IncludeSymbols>
+    <IncludeSource>false</IncludeSource>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <Compile Include="Library.fs"/>
-        <None Include="README.md" Pack="true" PackagePath="/"/>
-    </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Library.fs"/>
+    <None Include="README.md" Pack="true" PackagePath="/"/>
+  </ItemGroup>
 
 </Project>
