@@ -2,8 +2,11 @@
 
 F# ライブラリ。EDINET（日本）のタクソノミに基づく XBRL インスタンス文書を簡潔に生成します。
 
+**学習目的で作成しているものなので、バクやその他欠陥が存在する可能性があります。使用しないでください。**
+
 - explicitMember の大文字小文字（M は大文字）に準拠
-- dimension 属性は接頭辞つき QName を出力（例: `jppfs_cor:ConsolidatedOrNonConsolidatedAxis`）
+- dimension 属性は接頭辞つき QName を出力（例:
+  `jppfs_cor:ConsolidatedOrNonConsolidatedAxis`）
 - 名前空間宣言（xbrli/xbrldi/iso4217/jppfs_cor/jpcrp_cor/jpdei_cor、link/xlink）を自動付与
 - 既定の schemaRef（2020-11-01 の jppfs エントリポイント）を自動付与（上書き可）
 
@@ -53,21 +56,37 @@ doc.Save(path)
 
 ## API 概要
 
-- `InstanceBuilder.Ns` — 代表的な XML 名前空間（xbrli/xbrldi/iso4217/jppfs/jpcrp/jpdei/link/xlink）
+- `InstanceBuilder.Ns` — 代表的な XML
+  名前空間（xbrli/xbrldi/iso4217/jppfs/jpcrp/jpdei/link/xlink）
 - `InstanceBuilder.Period` — 期間表現（瞬時 or 期間）
 - `InstanceBuilder.AxisMember` — ディメンション（Axis と Member を XName で）
-- `InstanceBuilder.MonetaryFactArg` — 金額ファクトの引数レコード（`Decimals` と `Rounding` を指定）
-- `InstanceBuilder.BuildArgs` — 文書生成の引数レコード（`Dimensions` は `AxisMember list`）
+- `InstanceBuilder.MonetaryFactArg` — 金額ファクトの引数レコード（`Decimals` と
+  `Rounding` を指定）
+- `InstanceBuilder.BuildArgs` — 文書生成の引数レコード（`Dimensions` は
+  `AxisMember list`）
 - `InstanceBuilder.buildDocument : BuildArgs -> XDocument` — 生成本体
-- `InstanceBuilder.buildDocumentWithConfig : string option -> BuildArgs -> XDocument` — 設定ファイル経由で schemaRef を解決してから生成
-- `InstanceBuilder.buildDocumentWithResolver : Resolver.SchemaRefResolver -> BuildArgs -> XDocument` — 任意のリゾルバ関数で schemaRef を解決
-- `InstanceBuilder.buildDocumentWithNamespaces : PrefixMap -> BuildArgs -> XDocument` — ルートの xmlns と explicitMember の QName を外部指定のプレフィックスで生成
-- `InstanceBuilder.tryBuildDocument : BuildArgs -> Result<XDocument, BuildError list>` — 入力検証つき生成
-- `InstanceBuilder.Config` — 設定読み込み/URL 生成（`EntryPoint`, `Settings`, `schemaRefUrl`, `tryLoad`, `tryGetDefaultSchemaRefHref`）
-- `InstanceBuilder.Preset` — エントリポイント種別のプリセット（`epAsr`, `qsr`, `srs`, `ssr`, `jppfs`, `jpdei` など）
-- `InstanceBuilder.Builder` — 重複排除と自動ID付きのビルダーAPI（`init`, `addContext`, `addUnit`, `addFact`, `addFactWithRefs`, `build`）
-- `InstanceBuilder.Resolver` — リゾルバ作成（`fromConfigFile`, `fromConst`, `empty`）
-- `InstanceBuilder.Validation` — 軽量検証（`validateDocument` と `ValidationError`）
+-
+`InstanceBuilder.buildDocumentWithConfig : string option -> BuildArgs -> XDocument` —
+設定ファイル経由で schemaRef を解決してから生成
+-
+`InstanceBuilder.buildDocumentWithResolver : Resolver.SchemaRefResolver -> BuildArgs -> XDocument` —
+任意のリゾルバ関数で schemaRef を解決
+-
+`InstanceBuilder.buildDocumentWithNamespaces : PrefixMap -> BuildArgs -> XDocument` —
+ルートの xmlns と explicitMember の QName を外部指定のプレフィックスで生成
+-
+`InstanceBuilder.tryBuildDocument : BuildArgs -> Result<XDocument, BuildError list>` —
+入力検証つき生成
+- `InstanceBuilder.Config` — 設定読み込み/URL 生成（`EntryPoint`, `Settings`,
+  `schemaRefUrl`, `tryLoad`, `tryGetDefaultSchemaRefHref`）
+- `InstanceBuilder.Preset` — エントリポイント種別のプリセット（`epAsr`, `qsr`,
+  `srs`, `ssr`, `jppfs`, `jpdei` など）
+- `InstanceBuilder.Builder` — 重複排除と自動ID付きのビルダーAPI（`init`,
+  `addContext`, `addUnit`, `addFact`, `addFactWithRefs`, `build`）
+- `InstanceBuilder.Resolver` — リゾルバ作成（`fromConfigFile`, `fromConst`,
+  `empty`）
+- `InstanceBuilder.Validation` — 軽量検証（`validateDocument` と
+  `ValidationError`）
 
 ## schemaRef 既定
 
@@ -77,23 +96,26 @@ doc.Save(path)
 <link:schemaRef xlink:type="simple" xlink:href="https://disclosure.edinet-fsa.go.jp/taxonomy/jppfs/2020-11-01/jppfs_cor_2020-11-01.xsd" />
 ```
 
-年度やエントリポイントを変更したい場合は `SchemaRefHref = Some "...xsd"` を指定してください。
+年度やエントリポイントを変更したい場合は `SchemaRefHref = Some "...xsd"`
+を指定してください。
 
 ## 設定ファイルで schemaRef を管理
 
 設定ファイル（JSON）や環境変数で、年度やエントリポイントの既定を外出しできます。
 
 - 探索順:
-  1. `buildDocumentWithConfig (Some "path/to/xbrl.instancebuilder.json")`
-  2. 環境変数 `XBRL_INSTANCEBUILDER_CONFIG`
-  3. カレントディレクトリの `./xbrl.instancebuilder.json`
+    1. `buildDocumentWithConfig (Some "path/to/xbrl.instancebuilder.json")`
+    2. 環境変数 `XBRL_INSTANCEBUILDER_CONFIG`
+    3. カレントディレクトリの `./xbrl.instancebuilder.json`
 
 - JSON例（ASR: 有価証券報告書）
 
 ```json
 {
   "taxonomyDate": "2020-11-01",
-  "entryPoint": { "kind": "ASR" }
+  "entryPoint": {
+    "kind": "ASR"
+  }
 }
 ```
 
@@ -102,7 +124,10 @@ doc.Save(path)
 ```json
 {
   "taxonomyDate": "2020-11-01",
-  "entryPoint": { "kind": "JPPFS", "industry": "cai" }
+  "entryPoint": {
+    "kind": "JPPFS",
+    "industry": "cai"
+  }
 }
 ```
 
@@ -122,7 +147,8 @@ match InstanceBuilder.tryBuildDocument args with
 
 ## プリセット（エントリポイント種別のヘルパー）
 
-コードから直接エントリポイント URL を作りたい場合、`InstanceBuilder.Config.Settings` を `Preset` で簡単に組み立てられます。
+コードから直接エントリポイント URL を作りたい場合、
+`InstanceBuilder.Config.Settings` を `Preset` で簡単に組み立てられます。
 
 ```fsharp
 open Xbrl.InstanceBuilder
@@ -140,7 +166,8 @@ let url = Config.schemaRefUrl settingsAsr
 
 ## 任意のプレフィックス（xmlns）指定で出力
 
-`buildDocumentWithNamespaces` に `PrefixMap`（`Map<string /*namespaceUri*/, string /*prefix*/>`）を渡すと、
+`buildDocumentWithNamespaces` に `PrefixMap`（
+`Map<string /*namespaceUri*/, string /*prefix*/>`）を渡すと、
 ルートの xmlns 宣言と explicitMember の QName をそのプレフィックスで生成します。
 
 ```fsharp
@@ -156,12 +183,15 @@ let xdoc = InstanceBuilder.buildDocumentWithNamespaces prefixes args
 ```
 
 注:
-- `buildDocumentWithNamespaces` は既定で `xbrli/xbrldi/iso4217/link/xlink` だけを宣言します。
+
+- `buildDocumentWithNamespaces` は既定で `xbrli/xbrldi/iso4217/link/xlink`
+  だけを宣言します。
 - `jppfs/jpcrp/jpdei` などタクソノミ固有のプレフィックスは `PrefixMap` に含めてください。
 
 ## Builder API（重複排除と自動ID）
 
-Context/Unit の重複を自動で排除し、ID を自動採番してくれるビルダーです。I/O は行いません。
+Context/Unit の重複を自動で排除し、ID を自動採番してくれるビルダーです。I/O
+は行いません。
 
 ```fsharp
 open System
@@ -232,11 +262,14 @@ XDocument docNs = InstanceBuilder.CSharp.buildWithNamespaces(prefixes, args);
 
 ## Validation（軽量検証）
 
-`Validation.validateDocument` は、次のような軽量な検査を行い、`ValidationError list` を返します。
+`Validation.validateDocument` は、次のような軽量な検査を行い、
+`ValidationError list` を返します。
 
 - MissingSchemaRef — ルートに `link:schemaRef` が無い
-- MissingNamespacePrefix prefix — `explicitMember` の `dimension` または内容の QName で使用されるプレフィックスが未宣言
-- InvalidExplicitMember detail — `explicitMember` の `dimension` または内容が QName 形式でない
+- MissingNamespacePrefix prefix — `explicitMember` の `dimension` または内容の
+  QName で使用されるプレフィックスが未宣言
+- InvalidExplicitMember detail — `explicitMember` の `dimension` または内容が
+  QName 形式でない
 
 使用例（F#）:
 
@@ -262,9 +295,13 @@ MIT
  dotnet pack -c Release
 ```
 
-`Xbrl.InstanceBuilder.fsproj` の `RepositoryUrl`/`PackageProjectUrl` は、実リポジトリ URL に置き換えてください。
+`Xbrl.InstanceBuilder.fsproj` の `RepositoryUrl`/`PackageProjectUrl` は、実リポジトリ
+URL に置き換えてください。
 
 ## セキュリティ注意（http/https について）
 
-- schemaRef など、実際にフェッチされる可能性のある URL は https を使用します（本ライブラリは https を既定化し、http 指定でも https へ強制変換します）。
-- 一方、XML 名前空間 URI（例: `http://www.xbrl.org/2003/instance` や EDINET タクソノミの namespace URI）は「識別子（ID）」であり、仕様で定義された固定文字列です。これらは https に変更してはいけません（検証や互換性の観点から不適合になる可能性があります）。
+- schemaRef など、実際にフェッチされる可能性のある URL は https を使用します（本ライブラリは
+  https を既定化し、http 指定でも https へ強制変換します）。
+- 一方、XML 名前空間 URI（例: `http://www.xbrl.org/2003/instance` や EDINET タクソノミの
+  namespace URI）は「識別子（ID）」であり、仕様で定義された固定文字列です。これらは
+  https に変更してはいけません（検証や互換性の観点から不適合になる可能性があります）。
