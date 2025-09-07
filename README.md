@@ -1,5 +1,8 @@
 # Xbrl.InstanceBuilder
 
+[![.NET Build & Test](https://github.com/divergen371/XbrlInstanceBuilder/actions/workflows/dotnet.yml/badge.svg)](https://github.com/divergen371/XbrlInstanceBuilder/actions/workflows/dotnet.yml)
+[![Pack (Tag)](https://github.com/divergen371/XbrlInstanceBuilder/actions/workflows/release-pack.yml/badge.svg)](https://github.com/divergen371/XbrlInstanceBuilder/actions/workflows/release-pack.yml)
+
 F# ライブラリ。EDINET（日本）のタクソノミに基づく XBRL インスタンス文書を簡潔に生成します。
 
 **学習目的で作成しているものなので、バクやその他欠陥が存在する可能性があります。使用しないでください。**

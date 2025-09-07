@@ -9,8 +9,8 @@
         <Authors>Atsushi</Authors>
         <Company></Company>
         <Description>F# library to build XBRL instance documents for EDINET (JP) with handy helpers for contexts, units, facts, namespaces, and schemaRef presets.</Description>
-        <RepositoryUrl>https://example.com/your/repository</RepositoryUrl>
-        <PackageProjectUrl>https://example.com/your/repository</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/divergen371/XbrlInstanceBuilder</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/divergen371/XbrlInstanceBuilder</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageTags>XBRL;EDINET;F#;Instance;Xbrl;Finance;Japan</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
