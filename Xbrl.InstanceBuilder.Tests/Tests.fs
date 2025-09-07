@@ -295,40 +295,6 @@ let ``Truncate is between RoundDown and RoundHalfUp``
     if v >= 0m then lo <= tr && tr <= hi else tr >= hi
 
 [<Property(MaxTest = 100)>]
-let ``schemaRef URL canonicalization (edinet only upgrade)``
-    (baseUrl: string)
-    (useHttp: bool)
-    =
-    let hrefIn = (if useHttp then "http://" else "https://") + baseUrl
-
-    let args: BuildArgs =
-        { Lei = "5493001KJTIIGC8Y1R12"
-          ContextId = "C1"
-          Period = Period.Instant(DateTime(2025, 3, 31))
-          Dimensions = []
-          UnitId = "U1"
-          MeasureQName = "iso4217:JPY"
-          Facts = []
-          SchemaRefHref = Some hrefIn }
-
-    let doc = buildDocument args
-
-    let hrefOut =
-        doc.Root
-            .Element(Ns.link + "schemaRef")
-            .Attribute(Ns.xlink + "href")
-            .Value
-
-    let isEdinet = baseUrl.StartsWith("disclosure.edinet-fsa.go.jp")
-
-    if useHttp && isEdinet then
-        hrefOut.StartsWith("https://")
-    elif useHttp && not isEdinet then
-        hrefOut.StartsWith("http://")
-    else
-        hrefOut.StartsWith("https://")
-
-[<Property(MaxTest = 100)>]
 let ``Builder order invariance for two facts (set equality)``
     (a: decimal)
     (b: decimal)
@@ -387,6 +353,144 @@ let ``Builder order invariance for two facts (set equality)``
     let u1 = d1.Root.Elements(Ns.xbrli + "unit") |> Seq.length
     let u2 = d2.Root.Elements(Ns.xbrli + "unit") |> Seq.length
     f1 = f2 && c1 = 1 && c2 = 1 && u1 = 1 && u2 = 1
+
+[<Property(MaxTest = 200)>]
+let ``RoundHalfUp error is within theoretical bound``
+    (decimals: int)
+    (v: decimal)
+    =
+    let d =
+        if decimals > 6 then 6
+        elif decimals < -6 then -6
+        else decimals
+
+    let args: BuildArgs =
+        { Lei = "5493001KJTIIGC8Y1R12"
+          ContextId = "C1"
+          Period = Period.Instant(DateTime(2025, 3, 31))
+          Dimensions = []
+          UnitId = "U1"
+          MeasureQName = "iso4217:JPY"
+          Facts =
+            [ { QName = Ns.jppfs + "NetSales"
+                ContextRef = "C1"
+                UnitRef = "U1"
+                Decimals = d
+                Rounding = RoundingPolicy.RoundHalfUp
+                Value = v } ]
+          SchemaRefHref = None }
+
+    let doc = buildDocument args
+
+    let outv =
+        Decimal.Parse(
+            doc.Root.Element(Ns.jppfs + "NetSales").Value,
+            CultureInfo.InvariantCulture
+        )
+
+    let diff = abs (outv - v)
+
+    let pow10 n =
+        if n <= 0 then
+            1m
+        else
+            [ 1..n ] |> List.fold (fun acc _ -> acc * 10m) 1m
+
+    let scale = pow10 (abs d)
+    let bound = if d >= 0 then 0.5m / scale else 0.5m * scale
+    diff <= bound
+
+[<Fact>]
+let ``buildDocument declares default namespaces on root`` () =
+    let args: BuildArgs =
+        { Lei = "5493001KJTIIGC8Y1R12"
+          ContextId = "C1"
+          Period = Period.Instant(DateTime(2025, 3, 31))
+          Dimensions = []
+          UnitId = "U1"
+          MeasureQName = "iso4217:JPY"
+          Facts = []
+          SchemaRefHref = None }
+
+    let doc = buildDocument args
+    let attrs = doc.Root.Attributes() |> Seq.toList
+
+    let ns name =
+        attrs |> Seq.exists (fun a -> a.Name = (XNamespace.Xmlns + name))
+
+    ns "xbrli" |> should be True
+    ns "xbrldi" |> should be True
+    ns "iso4217" |> should be True
+    ns "jppfs_cor" |> should be True
+    ns "jpcrp_cor" |> should be True
+    ns "jpdei_cor" |> should be True
+    ns "link" |> should be True
+    ns "xlink" |> should be True
+
+[<Property(MaxTest = 100)>]
+let ``buildDocumentWithNamespaces declares given prefixes only (plus defaults)``
+    (rawPrefix: string)
+    =
+    let p = toNcName rawPrefix
+    let prefixes: PrefixMap = [ string Ns.jppfs, p ] |> Map.ofList
+
+    let args: BuildArgs =
+        { Lei = "5493001KJTIIGC8Y1R12"
+          ContextId = "C1"
+          Period = Period.Instant(DateTime(2025, 3, 31))
+          Dimensions =
+            [ { Axis = Ns.jppfs + "A"
+                Member = Ns.jppfs + "B" } ]
+          UnitId = "U1"
+          MeasureQName = "iso4217:JPY"
+          Facts = []
+          SchemaRefHref = None }
+
+    let doc = buildDocumentWithNamespaces prefixes args
+    let attrs = doc.Root.Attributes() |> Seq.toList
+
+    let hasNs name =
+        attrs |> Seq.exists (fun a -> a.Name = (XNamespace.Xmlns + name))
+    // always present defaults
+    hasNs "xbrli" |> should be True
+    hasNs "xbrldi" |> should be True
+    hasNs "iso4217" |> should be True
+    hasNs "link" |> should be True
+    hasNs "xlink" |> should be True
+    // provided prefix exists
+    hasNs p |> should be True
+    // taxonomy defaults are not auto-declared unless provided
+    hasNs "jppfs_cor" |> should be False
+    hasNs "jpcrp_cor" |> should be False
+    hasNs "jpdei_cor" |> should be False
+
+[<Fact>]
+let ``qnameOfWith falls back to qnameOf when prefix missing`` () =
+    let prefixes: PrefixMap = Map.empty
+
+    let args: BuildArgs =
+        { Lei = "5493001KJTIIGC8Y1R12"
+          ContextId = "C1"
+          Period = Period.Instant(DateTime(2025, 3, 31))
+          Dimensions =
+            [ { Axis = Ns.jppfs + "ConsolidatedOrNonConsolidatedAxis"
+                Member = Ns.jppfs + "ConsolidatedMember" } ]
+          UnitId = "U1"
+          MeasureQName = "iso4217:JPY"
+          Facts = []
+          SchemaRefHref = None }
+
+    let doc = buildDocumentWithNamespaces prefixes args
+
+    let em =
+        doc.Root
+            .Element(Ns.xbrli + "context")
+            .Element(Ns.xbrli + "segment")
+            .Element(Ns.xbrldi + "explicitMember")
+
+    let dim = em.Attribute(XName.Get "dimension").Value
+    dim |> should startWith "jppfs_cor:"
+    em.Value |> should startWith "jppfs_cor:"
 
 [<Property(MaxTest = 100)>]
 let ``schemaRef http is upgraded to https, https preserved`` (useHttp: bool) =

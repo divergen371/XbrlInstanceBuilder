@@ -1,0 +1,36 @@
+name: Pack (Tag)
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          cache: true
+
+      - name: Restore
+        run: dotnet restore --nologo
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore --nologo
+
+      - name: Pack
+        run: dotnet pack Xbrl.InstanceBuilder.fsproj --configuration Release --no-build --output artifacts
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts/*.nupkg

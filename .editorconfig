@@ -1,0 +1,43 @@
+# top-most EditorConfig file
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# Markdown: keep trailing spaces (for line breaks)
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2
+
+# YAML / JSON
+[*.yml]
+indent_size = 2
+[*.yaml]
+indent_size = 2
+[*.json]
+indent_size = 2
+
+# F# source files
+[*.fs]
+indent_size = 4
+
+# Solution and project files
+[*.sln]
+indent_style = tab
+indent_size = 4
+[*.{csproj,fsproj}]
+indent_size = 2
+
+# .gitignore, dotenv, etc.
+[.gitignore]
+end_of_line = lf
+
+# ReSharper / Rider (if present)
+[*.DotSettings]
+end_of_line = lf
+insert_final_newline = true

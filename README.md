@@ -66,17 +66,25 @@ doc.Save(path)
   `AxisMember list`）
 - `InstanceBuilder.buildDocument : BuildArgs -> XDocument` — 生成本体
 -
+
 `InstanceBuilder.buildDocumentWithConfig : string option -> BuildArgs -> XDocument` —
 設定ファイル経由で schemaRef を解決してから生成
+
 -
+
 `InstanceBuilder.buildDocumentWithResolver : Resolver.SchemaRefResolver -> BuildArgs -> XDocument` —
 任意のリゾルバ関数で schemaRef を解決
+
 -
+
 `InstanceBuilder.buildDocumentWithNamespaces : PrefixMap -> BuildArgs -> XDocument` —
 ルートの xmlns と explicitMember の QName を外部指定のプレフィックスで生成
+
 -
+
 `InstanceBuilder.tryBuildDocument : BuildArgs -> Result<XDocument, BuildError list>` —
 入力検証つき生成
+
 - `InstanceBuilder.Config` — 設定読み込み/URL 生成（`EntryPoint`, `Settings`,
   `schemaRefUrl`, `tryLoad`, `tryGetDefaultSchemaRefHref`）
 - `InstanceBuilder.Preset` — エントリポイント種別のプリセット（`epAsr`, `qsr`,
@@ -104,9 +112,9 @@ doc.Save(path)
 設定ファイル（JSON）や環境変数で、年度やエントリポイントの既定を外出しできます。
 
 - 探索順:
-    1. `buildDocumentWithConfig (Some "path/to/xbrl.instancebuilder.json")`
-    2. 環境変数 `XBRL_INSTANCEBUILDER_CONFIG`
-    3. カレントディレクトリの `./xbrl.instancebuilder.json`
+  1. `buildDocumentWithConfig (Some "path/to/xbrl.instancebuilder.json")`
+  2. 環境変数 `XBRL_INSTANCEBUILDER_CONFIG`
+  3. カレントディレクトリの `./xbrl.instancebuilder.json`
 
 - JSON例（ASR: 有価証券報告書）
 
