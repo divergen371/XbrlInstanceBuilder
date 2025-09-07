@@ -1,0 +1,48 @@
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+
+# JetBrains Rider / IntelliJ
+.idea/
+*.ipr
+*.iws
+*.iml
+
+# Visual Studio / VSCode
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.DotSettings.user
+
+# Build artefacts
+[Bb]in/
+[Oo]bj/
+[Rr]elease/
+[Dd]ebug/
+[Tt]est[Rr]esult*/
+TestResults/
+artifacts/
+
+# NuGet
+*.nupkg
+*.snupkg
+
+# ReSharper
+.ReSharper*/
+/_ReSharper.Caches/
+
+# OS / misc
+.DS_Store
+*.log
+
+# Coverage
+coverage/
+coverage*.json
+*.lcov
+
+# BenchmarkDotNet
+BenchmarkDotNet.Artifacts/
