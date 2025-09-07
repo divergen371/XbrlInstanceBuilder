@@ -36,7 +36,7 @@ jobs:
 
       - name: Test (with coverage)
         run: >-
-          dotnet test --no-build --verbosity normal --logger trx
+          dotnet test Xbrl.InstanceBuilder.Tests/Xbrl.InstanceBuilder.Tests.fsproj --configuration Release --verbosity normal --logger trx
           --results-directory TestResults --collect:"XPlat Code Coverage"
 
       - name: Upload test results
