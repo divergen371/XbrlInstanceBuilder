@@ -756,8 +756,16 @@ module InstanceBuilder =
             | MissingNamespacePrefix of prefix: string
             | MissingSchemaRef
             | InvalidExplicitMember of detail: string
+            | MissingContext
+            | MissingUnit
+            | DuplicateContextId of string
+            | DuplicateUnitId of string
+            | UnknownContextRef of string
+            | UnknownUnitRef of string
+            | InvalidDecimals of string
 
-        /// XDocument を検査し、未宣言プレフィックスや schemaRef 欠如などの軽微な不整合を検出
+        /// XDocument を検査し、未宣言プレフィックスや schemaRef 欠如、
+        /// context/unit の不足・重複、fact の参照不整合などを検出
         let validateDocument (doc: XDocument) : ValidationError list =
             let root = doc.Root
 
@@ -812,6 +820,65 @@ module InstanceBuilder =
                                 "member should be QName: " + content
                             )
                         )
+
+                // contexts / units: presence and duplicate id check
+                let contexts = root.Elements(Ns.xbrli + "context") |> Seq.toList
+                let units = root.Elements(Ns.xbrli + "unit") |> Seq.toList
+
+                if List.isEmpty contexts then
+                    errs.Add MissingContext
+
+                if List.isEmpty units then
+                    errs.Add MissingUnit
+
+                let idOf (el: XElement) =
+                    let a = el.Attribute(XName.Get "id")
+                    if isNull (box a) then None else Some a.Value
+
+                let dupIds (els: XElement list) =
+                    els
+                    |> List.choose idOf
+                    |> List.groupBy id
+                    |> List.choose (fun (k, vs) ->
+                        if List.length vs > 1 then Some k else None)
+
+                for id in dupIds contexts do
+                    errs.Add(DuplicateContextId id)
+
+                for id in dupIds units do
+                    errs.Add(DuplicateUnitId id)
+
+                // fact references: unknown contextRef/unitRef and invalid decimals
+                let ctxIdSet = contexts |> Seq.choose idOf |> Set.ofSeq
+
+                let unitIdSet = units |> Seq.choose idOf |> Set.ofSeq
+
+                let allEls = root.Descendants() |> Seq.toList
+
+                for el in allEls do
+                    let cref = el.Attribute(XName.Get "contextRef")
+
+                    if not (isNull (box cref)) then
+                        let v = cref.Value
+
+                        if not (ctxIdSet.Contains v) then
+                            errs.Add(UnknownContextRef v)
+
+                    let uref = el.Attribute(XName.Get "unitRef")
+
+                    if not (isNull (box uref)) then
+                        let v = uref.Value
+
+                        if not (unitIdSet.Contains v) then
+                            errs.Add(UnknownUnitRef v)
+
+                    let dec = el.Attribute(XName.Get "decimals")
+
+                    if not (isNull (box dec)) then
+                        let mutable parsed = 0
+
+                        if not (Int32.TryParse(dec.Value, &parsed)) then
+                            errs.Add(InvalidDecimals dec.Value)
 
                 List.ofSeq errs
 

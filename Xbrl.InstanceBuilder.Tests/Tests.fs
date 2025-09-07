@@ -540,12 +540,100 @@ let ``Validation succeeds when prefixes are declared`` (rawPrefix: string) =
     let prefixes: PrefixMap = [ string Ns.jppfs, p ] |> Map.ofList
     let doc = buildDocumentWithNamespaces prefixes args
     let errs = Validation.validateDocument doc
-
     errs
     |> List.exists (function
         | Validation.MissingNamespacePrefix _ -> true
         | _ -> false)
     |> not
+    
+[<Fact>]
+let ``Validation detects missing context and unit`` () =
+    let root = XElement(Ns.xbrli + "xbrl")
+    // add required xmlns to avoid other errors
+    root.Add(XAttribute(XNamespace.Xmlns + "xbrli", string Ns.xbrli))
+    root.Add(XAttribute(XNamespace.Xmlns + "xbrldi", string Ns.xbrldi))
+    root.Add(XAttribute(XNamespace.Xmlns + "iso4217", string Ns.iso4217))
+    root.Add(XAttribute(XNamespace.Xmlns + "link", string Ns.link))
+    root.Add(XAttribute(XNamespace.Xmlns + "xlink", string Ns.xlink))
+    root.Add(
+        XElement(
+            Ns.link + "schemaRef",
+            XAttribute(Ns.xlink + "type", "simple"),
+            XAttribute(Ns.xlink + "href", "https://example.com/entry.xsd")
+        )
+    )
+    let doc = XDocument(root)
+    let errs = Validation.validateDocument doc
+    errs |> List.exists (function Validation.MissingContext -> true | _ -> false) |> should be True
+    errs |> List.exists (function Validation.MissingUnit -> true | _ -> false) |> should be True
+
+[<Fact>]
+let ``Validation detects duplicate contextId and unitId`` () =
+    let doc =
+        let args : BuildArgs =
+            { Lei = "5493001KJTIIGC8Y1R12"
+              ContextId = "C1"
+              Period = Period.Instant(DateTime(2025,3,31))
+              Dimensions = []
+              UnitId = "U1"
+              MeasureQName = "iso4217:JPY"
+              Facts = []
+              SchemaRefHref = None }
+        let d = buildDocument args
+        // duplicate context and unit by adding another with the same id
+        d.Root.Add(XElement(d.Root.Element(Ns.xbrli + "context")))
+        d.Root.Add(XElement(d.Root.Element(Ns.xbrli + "unit")))
+        d
+    let errs = Validation.validateDocument doc
+    errs |> List.exists (function Validation.DuplicateContextId _ -> true | _ -> false) |> should be True
+    errs |> List.exists (function Validation.DuplicateUnitId _ -> true | _ -> false) |> should be True
+
+[<Fact>]
+let ``Validation detects unknown contextRef and unitRef`` () =
+    let root = XElement(Ns.xbrli + "xbrl")
+    root.Add(XAttribute(XNamespace.Xmlns + "xbrli", string Ns.xbrli))
+    root.Add(XAttribute(XNamespace.Xmlns + "xbrldi", string Ns.xbrldi))
+    root.Add(XAttribute(XNamespace.Xmlns + "iso4217", string Ns.iso4217))
+    root.Add(XAttribute(XNamespace.Xmlns + "link", string Ns.link))
+    root.Add(XAttribute(XNamespace.Xmlns + "xlink", string Ns.xlink))
+    root.Add(
+        XElement(
+            Ns.link + "schemaRef",
+            XAttribute(Ns.xlink + "type", "simple"),
+            XAttribute(Ns.xlink + "href", "https://example.com/entry.xsd")
+        )
+    )
+    // add one context/unit with id that won't match the fact
+    root.Add(XElement(Ns.xbrli + "context", XAttribute(XName.Get "id", "C_OK")))
+    root.Add(XElement(Ns.xbrli + "unit", XAttribute(XName.Get "id", "U_OK"), XElement(Ns.xbrli + "measure", "iso4217:JPY")))
+    // add a fact that points to non-existing IDs
+    root.Add(
+        XElement(Ns.jppfs + "NetSales",
+            XAttribute(XName.Get "contextRef", "C_MISSING"),
+            XAttribute(XName.Get "unitRef", "U_MISSING"),
+            XAttribute(XName.Get "decimals", "0"),
+            "123"))
+    let doc = XDocument(root)
+    let errs = Validation.validateDocument doc
+    errs |> List.exists (function Validation.UnknownContextRef v when v = "C_MISSING" -> true | _ -> false) |> should be True
+    errs |> List.exists (function Validation.UnknownUnitRef v when v = "U_MISSING" -> true | _ -> false) |> should be True
+
+[<Fact>]
+let ``Validation detects invalid decimals attribute`` () =
+    let args : BuildArgs =
+        { Lei = "5493001KJTIIGC8Y1R12"
+          ContextId = "C1"
+          Period = Period.Instant(DateTime(2025,3,31))
+          Dimensions = []
+          UnitId = "U1"
+          MeasureQName = "iso4217:JPY"
+          Facts = [ { QName = Ns.jppfs + "NetSales"; ContextRef = "C1"; UnitRef = "U1"; Decimals = 0; Rounding = RoundingPolicy.Truncate; Value = 1m } ]
+          SchemaRefHref = None }
+    let doc = buildDocument args
+    let fact = doc.Root.Element(Ns.jppfs + "NetSales")
+    fact.SetAttributeValue(XName.Get "decimals", "NaN")
+    let errs = Validation.validateDocument doc
+    errs |> List.exists (function Validation.InvalidDecimals _ -> true | _ -> false) |> should be True
 
 [<Property(MaxTest = 100)>]
 let ``Validation flags missing prefixes when not declared`` () =
