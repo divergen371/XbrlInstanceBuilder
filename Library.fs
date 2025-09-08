@@ -47,6 +47,44 @@ module InstanceBuilder =
                 else Ok (MeasureQName input)
             let value (MeasureQName v) = v
 
+        /// Decimals 値（整数）。文字列からのパースも提供
+        type Decimals = private Decimals of int
+        module Decimals =
+            let create (n: int) = Ok (Decimals n)
+            let ofString (s: string) =
+                let mutable v = 0
+                if Int32.TryParse(s, &v) then Ok (Decimals v) else Error
+                                                                       $"Invalid decimals: {s}"
+
+            let value (Decimals v) = v
+
+        /// XName を役割ごとにラップ（Axis/Member）
+        type AxisQName = private AxisQName of XName
+        module AxisQName =
+            let create (x: XName) =
+                if isNull (box x) then Error "AxisQName is null" else Ok (AxisQName x)
+            let value (AxisQName x) = x
+
+        type MemberQName = private MemberQName of XName
+        module MemberQName =
+            let create (x: XName) =
+                if isNull (box x) then Error "MemberQName is null" else Ok (MemberQName x)
+            let value (MemberQName x) = x
+
+        /// Duration（開始<=終了 を型で保証）と PeriodV2
+        type Duration = private Duration of startDate: DateTime * endDate: DateTime
+        module Duration =
+            let create (startDate: DateTime) (endDate: DateTime) =
+                if startDate <= endDate then Ok (Duration(startDate, endDate))
+                else Error "Duration requires startDate <= endDate"
+            let values (Duration (s,e)) = s, e
+
+        type PeriodV2 =
+            | Instant of DateTime
+            | Duration of Duration
+
+        type AxisMemberV2 = { Axis: AxisQName; Member: MemberQName }
+
     module Ns =
         let xbrli = XNamespace.Get "http://www.xbrl.org/2003/instance"
         let xbrldi = XNamespace.Get "http://www.xbrl.org/2006/xbrldi"
@@ -585,32 +623,132 @@ module InstanceBuilder =
 
         XDocument(root)
 
-    // ---------- Typed (V2) API: ドメイン値を受け取るビルド ----------
+    // ---------- Typed (V2) API: 型定義（先に宣言して依存関係を解消） ----------
     type MonetaryFactArgV2 =
         { QName: XName
           ContextRef: Domain.ContextId
           UnitRef: Domain.UnitId
-          Decimals: int
+          Decimals: Domain.Decimals
           Rounding: RoundingPolicy
           Value: decimal }
 
     type BuildArgsV2 =
         { Lei: Domain.Lei
           ContextId: Domain.ContextId
-          Period: Period
-          Dimensions: AxisMember list
+          Period: Domain.PeriodV2
+          Dimensions: Domain.AxisMemberV2 list
           UnitId: Domain.UnitId
           MeasureQName: Domain.MeasureQName
           Facts: MonetaryFactArgV2 list
           SchemaRefHref: string option }
 
+    /// BuildArgsV2 を段階的に構築するビルダー（Result パイプで合成）
+    module BuildArgsV2Builder =
+        type Draft =
+            { Lei: Domain.Lei option
+              ContextId: Domain.ContextId option
+              Period: Domain.PeriodV2 option
+              Dimensions: Domain.AxisMemberV2 list
+              UnitId: Domain.UnitId option
+              MeasureQName: Domain.MeasureQName option
+              Facts: MonetaryFactArgV2 list
+              SchemaRefHref: string option }
+
+        let empty : Draft =
+            { Lei = None
+              ContextId = None
+              Period = None
+              Dimensions = []
+              UnitId = None
+              MeasureQName = None
+              Facts = []
+              SchemaRefHref = None }
+
+        let withLei (s: string) (d: Draft) =
+            match Domain.Lei.create s with
+            | Ok v -> Ok { d with Lei = Some v }
+            | Error e -> Error e
+
+        let withContextId (s: string) (d: Draft) =
+            match Domain.ContextId.create s with
+            | Ok v -> Ok { d with ContextId = Some v }
+            | Error e -> Error e
+
+        let withUnitId (s: string) (d: Draft) =
+            match Domain.UnitId.create s with
+            | Ok v -> Ok { d with UnitId = Some v }
+            | Error e -> Error e
+
+        let withMeasureQName (s: string) (d: Draft) =
+            match Domain.MeasureQName.create s with
+            | Ok v -> Ok { d with MeasureQName = Some v }
+            | Error e -> Error e
+
+        let withInstant (dt: DateTime) (d: Draft) = Ok { d with Period = Some (Domain.PeriodV2.Instant dt) }
+
+        let withDuration (startDate: DateTime) (endDate: DateTime) (d: Draft) =
+            match Domain.Duration.create startDate endDate with
+            | Ok dur -> Ok { d with Period = Some (Domain.PeriodV2.Duration dur) }
+            | Error e -> Error e
+
+        let addDimensionX (axis: XName) (memberName: XName) (d: Draft) =
+            match Domain.AxisQName.create axis, Domain.MemberQName.create memberName with
+            | Ok a, Ok m -> Ok { d with Dimensions = d.Dimensions @ [ { Axis = a; Member = m } ] }
+            | Error e, _ -> Error e
+            | _, Error e -> Error e
+
+        let addFactX (qname: XName) (contextRef: string) (unitRef: string) (decimals: int) (rounding: RoundingPolicy) (value: decimal) (d: Draft) =
+            match Domain.ContextId.create contextRef, Domain.UnitId.create unitRef, Domain.Decimals.create decimals with
+            | Ok c, Ok u, Ok dec ->
+                let f: MonetaryFactArgV2 = { QName = qname; ContextRef = c; UnitRef = u; Decimals = dec; Rounding = rounding; Value = value }
+                Ok { d with Facts = d.Facts @ [ f ] }
+            | Error e, _, _ -> Error e
+            | _, Error e, _ -> Error e
+            | _, _, Error e -> Error e
+
+        let setSchemaRefHref (href: string option) (d: Draft) = Ok { d with SchemaRefHref = href }
+
+        let finalize (d: Draft) : Result<BuildArgsV2, string list> =
+            let missing = List<string>()
+            let pick name opt = match opt with Some v -> Some v | None -> missing.Add(name); None
+            let lei = pick "Lei" d.Lei
+            let cid = pick "ContextId" d.ContextId
+            let period = pick "Period" d.Period
+            let unitId = pick "UnitId" d.UnitId
+            let measure = pick "MeasureQName" d.MeasureQName
+            if missing.Count > 0 then Error (Seq.toList missing)
+            else
+                Ok { Lei = lei.Value
+                     ContextId = cid.Value
+                     Period = period.Value
+                     Dimensions = d.Dimensions
+                     UnitId = unitId.Value
+                     MeasureQName = measure.Value
+                     Facts = d.Facts
+                     SchemaRefHref = d.SchemaRefHref }
+
+
+
+    // ---------- Typed (V2) API: ドメイン値を受け取るビルド ----------
+
     let buildDocumentV2 (args: BuildArgsV2) : XDocument =
+        let periodV1 =
+            match args.Period with
+            | Domain.PeriodV2.Instant d -> Instant d
+            | Domain.PeriodV2.Duration dur ->
+                let s,e = Domain.Duration.values dur
+                Duration (s,e)
+
+        let dimsV1 : AxisMember list =
+            args.Dimensions
+            |> List.map (fun d -> { Axis = d.Axis |> Domain.AxisQName.value; Member = d.Member |> Domain.MemberQName.value })
+
         let ctx =
             context
                 (args.ContextId |> Domain.ContextId.value)
                 (args.Lei |> Domain.Lei.value)
-                args.Period
-                args.Dimensions
+                periodV1
+                dimsV1
 
         let u =
             unitElem
@@ -620,12 +758,12 @@ module InstanceBuilder =
         let facts =
             args.Facts
             |> List.map (fun f ->
-                let rounded = roundWith f.Rounding f.Decimals f.Value
+                let rounded = roundWith f.Rounding (f.Decimals |> Domain.Decimals.value) f.Value
                 monetaryFact
                     f.QName
                     (f.ContextRef |> Domain.ContextId.value)
                     (f.UnitRef |> Domain.UnitId.value)
-                    f.Decimals
+                    (f.Decimals |> Domain.Decimals.value)
                     rounded
                 |> box)
 
@@ -811,6 +949,7 @@ module InstanceBuilder =
                 | InvalidDimensions msg -> $"InvalidDimensions: {msg}")
             |> List.toArray
 
+
         /// AxisMember を生成
         let newAxisMember (axis: XName) (memberName: XName) : AxisMember =
             { Axis = axis; Member = memberName }
@@ -869,6 +1008,8 @@ module InstanceBuilder =
                 prefixDict |> Seq.map (fun kv -> kv.Key, kv.Value) |> Map.ofSeq
 
             buildDocumentWithNamespaces mp args
+
+
 
     /// バリデーション（軽量な構文的チェック）
     module Validation =
@@ -1163,3 +1304,55 @@ module InstanceBuilder =
         let doc = buildDocumentV2 args
         let errs = Validation.validateDocument doc
         if List.isEmpty errs then Ok doc else Error errs
+
+    /// C# フレンドリー API (V2)
+    module CSharpV2 =
+        let private toValidationErrorStrings (errs: Validation.ValidationError list) =
+            errs
+            |> List.map (function
+                | Validation.MissingNamespacePrefix p -> $"MissingNamespacePrefix: {p}"
+                | Validation.MissingSchemaRef -> "MissingSchemaRef"
+                | Validation.InvalidExplicitMember d -> $"InvalidExplicitMember: {d}"
+                | Validation.MissingContext -> "MissingContext"
+                | Validation.MissingUnit -> "MissingUnit"
+                | Validation.DuplicateContextId id -> $"DuplicateContextId: {id}"
+                | Validation.DuplicateUnitId id -> $"DuplicateUnitId: {id}"
+                | Validation.UnknownContextRef id -> $"UnknownContextRef: {id}"
+                | Validation.UnknownUnitRef id -> $"UnknownUnitRef: {id}"
+                | Validation.InvalidDecimals v -> $"InvalidDecimals: {v}")
+            |> List.toArray
+
+        let createLei (s: string) = match Domain.Lei.create s with Ok v -> Some v | Error _ -> None
+        let createContextId (s: string) = match Domain.ContextId.create s with Ok v -> Some v | Error _ -> None
+        let createUnitId (s: string) = match Domain.UnitId.create s with Ok v -> Some v | Error _ -> None
+        let createMeasureQName (s: string) = match Domain.MeasureQName.create s with Ok v -> Some v | Error _ -> None
+        let createDecimals (n: int) = match Domain.Decimals.create n with Ok v -> Some v | Error _ -> None
+        let decimalsFromString (s: string) = match Domain.Decimals.ofString s with Ok v -> Some v | Error _ -> None
+        let axisQNameOf (x: XName) = match Domain.AxisQName.create x with Ok v -> Some v | Error _ -> None
+        let memberQNameOf (x: XName) = match Domain.MemberQName.create x with Ok v -> Some v | Error _ -> None
+        let instant (dt: DateTime) = Domain.PeriodV2.Instant dt
+        let duration (startDate: DateTime) (endDate: DateTime) = match Domain.Duration.create startDate endDate with Ok v -> Some (Domain.PeriodV2.Duration v) | Error _ -> None
+
+        let newAxisMember (axis: Domain.AxisQName) (memberName: Domain.MemberQName) : Domain.AxisMemberV2 = { Axis = axis; Member = memberName }
+
+        let newMonetaryFactArg
+            (qname: XName)
+            (contextRef: Domain.ContextId)
+            (unitRef: Domain.UnitId)
+            (decimals: Domain.Decimals)
+            (rounding: RoundingPolicy)
+            (value: decimal)
+            : MonetaryFactArgV2 =
+            { QName = qname
+              ContextRef = contextRef
+              UnitRef = unitRef
+              Decimals = decimals
+              Rounding = rounding
+              Value = value }
+
+        type BuildOutcomeV2 = { Success: bool; Document: XDocument; Errors: string array }
+
+        let tryBuildV2 (args: BuildArgsV2) : BuildOutcomeV2 =
+            match tryBuildDocumentV2 args with
+            | Ok doc -> { Success = true; Document = doc; Errors = Array.empty }
+            | Error es -> { Success = false; Document = null; Errors = toValidationErrorStrings es }
