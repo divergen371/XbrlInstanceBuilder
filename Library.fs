@@ -8,6 +8,45 @@ open System.Collections.Generic
 
 module InstanceBuilder =
 
+    /// ドメイン値オブジェクト（関数型ドメインモデリング）
+    module Domain =
+        /// 非空文字列の基本チェック
+        let private notBlank (s: string) = not (String.IsNullOrWhiteSpace s)
+
+        /// LEI (ISO 17442) — ここでは「英数字20文字」を最低限の条件として採用
+        type Lei = private Lei of string
+        module Lei =
+            let create (input: string) =
+                if String.IsNullOrEmpty input then Error "LEI is blank"
+                elif input.Length <> 20 then Error "LEI must be 20 characters"
+                elif input |> Seq.forall (fun c -> Char.IsLetterOrDigit c) |> not then
+                    Error "LEI must be alphanumeric"
+                else Ok (Lei input)
+            let value (Lei v) = v
+
+        /// ContextId — 非空のみを保証
+        type ContextId = private ContextId of string
+        module ContextId =
+            let create (input: string) =
+                if notBlank input then Ok (ContextId input) else Error "ContextId is blank"
+            let value (ContextId v) = v
+
+        /// UnitId — 非空のみを保証
+        type UnitId = private UnitId of string
+        module UnitId =
+            let create (input: string) =
+                if notBlank input then Ok (UnitId input) else Error "UnitId is blank"
+            let value (UnitId v) = v
+
+        /// Measure の QName 表現 — 最低限、prefix:name の形式を保証
+        type MeasureQName = private MeasureQName of string
+        module MeasureQName =
+            let create (input: string) =
+                if String.IsNullOrWhiteSpace input then Error "MeasureQName is blank"
+                elif input.Contains(":") |> not then Error "MeasureQName must be in 'prefix:name' form"
+                else Ok (MeasureQName input)
+            let value (MeasureQName v) = v
+
     module Ns =
         let xbrli = XNamespace.Get "http://www.xbrl.org/2003/instance"
         let xbrldi = XNamespace.Get "http://www.xbrl.org/2006/xbrldi"
@@ -261,6 +300,13 @@ module InstanceBuilder =
         | Instant of DateTime
         | Duration of startDate: DateTime * endDate: DateTime
 
+    /// 共通: http で始まる EDINET ドメインの URL を https に昇格
+    let private toHttps (url: string) =
+        if url.StartsWith("http://disclosure.edinet-fsa.go.jp") then
+            "https://" + url.Substring("http://".Length)
+        else
+            url
+
     let context
         (id: string)
         (lei: string)
@@ -285,36 +331,37 @@ module InstanceBuilder =
                           (Ns.xbrli + "endDate")
                           [ box (e.ToString("yyyy-MM-dd")) ] ]
 
-        let segment =
+        let segmentOpt =
             if List.isEmpty dim then
-                null
+                None
             else
-                elem
-                    (Ns.xbrli + "segment")
-                    [ yield!
-                          dim
-                          |> List.map (fun am ->
-                              box (
-                                  elem
-                                      (Ns.xbrldi + "explicitMember")
-                                      [ attr
-                                            (XName.Get "dimension")
-                                            (box (qnameOf am.Axis))
-                                        box (qnameOf am.Member) ]
-                              )) ]
+                Some(
+                    elem
+                        (Ns.xbrli + "segment")
+                        [ yield!
+                              dim
+                              |> List.map (fun am ->
+                                  box (
+                                      elem
+                                          (Ns.xbrldi + "explicitMember")
+                                          [ attr
+                                                (XName.Get "dimension")
+                                                (box (qnameOf am.Axis))
+                                            box (qnameOf am.Member) ]
+                                  )) ]
+                )
 
         elem
             (Ns.xbrli + "context")
-            [ attr (XName.Get "id") id
-              elem
-                  (Ns.xbrli + "entity")
-                  [ elem
-                        (Ns.xbrli + "identifier")
-                        [ attr (XName.Get "scheme") "http://www.gleif.org/lei"
-                          box lei ] ]
-              box periodEl
-              if box segment <> null then
-                  box segment ]
+            ([ attr (XName.Get "id") id
+               elem
+                   (Ns.xbrli + "entity")
+                   [ elem
+                         (Ns.xbrli + "identifier")
+                         [ attr (XName.Get "scheme") "http://www.gleif.org/lei"
+                           box lei ] ]
+               box periodEl ]
+             @ (segmentOpt |> Option.toList |> List.map box))
 
     let unitElem (id: string) (measureQName: string) =
         elem
@@ -348,36 +395,37 @@ module InstanceBuilder =
                           (Ns.xbrli + "endDate")
                           [ box (e.ToString("yyyy-MM-dd")) ] ]
 
-        let segment =
+        let segmentOpt =
             if List.isEmpty dim then
-                null
+                None
             else
-                elem
-                    (Ns.xbrli + "segment")
-                    [ yield!
-                          dim
-                          |> List.map (fun am ->
-                              box (
-                                  elem
-                                      (Ns.xbrldi + "explicitMember")
-                                      [ attr
-                                            (XName.Get "dimension")
-                                            (box (qnameOfWith prefixes am.Axis))
-                                        box (qnameOfWith prefixes am.Member) ]
-                              )) ]
+                Some(
+                    elem
+                        (Ns.xbrli + "segment")
+                        [ yield!
+                              dim
+                              |> List.map (fun am ->
+                                  box (
+                                      elem
+                                          (Ns.xbrldi + "explicitMember")
+                                          [ attr
+                                                (XName.Get "dimension")
+                                                (box (qnameOfWith prefixes am.Axis))
+                                            box (qnameOfWith prefixes am.Member) ]
+                                  )) ]
+                )
 
         elem
             (Ns.xbrli + "context")
-            [ attr (XName.Get "id") id
-              elem
-                  (Ns.xbrli + "entity")
-                  [ elem
-                        (Ns.xbrli + "identifier")
-                        [ attr (XName.Get "scheme") "http://www.gleif.org/lei"
-                          box lei ] ]
-              box periodEl
-              if box segment <> null then
-                  box segment ]
+            ([ attr (XName.Get "id") id
+               elem
+                   (Ns.xbrli + "entity")
+                   [ elem
+                         (Ns.xbrli + "identifier")
+                         [ attr (XName.Get "scheme") "http://www.gleif.org/lei"
+                           box lei ] ]
+               box periodEl ]
+             @ (segmentOpt |> Option.toList |> List.map box))
 
     let monetaryFact
         (qname: XName)
@@ -537,6 +585,84 @@ module InstanceBuilder =
 
         XDocument(root)
 
+    // ---------- Typed (V2) API: ドメイン値を受け取るビルド ----------
+    type MonetaryFactArgV2 =
+        { QName: XName
+          ContextRef: Domain.ContextId
+          UnitRef: Domain.UnitId
+          Decimals: int
+          Rounding: RoundingPolicy
+          Value: decimal }
+
+    type BuildArgsV2 =
+        { Lei: Domain.Lei
+          ContextId: Domain.ContextId
+          Period: Period
+          Dimensions: AxisMember list
+          UnitId: Domain.UnitId
+          MeasureQName: Domain.MeasureQName
+          Facts: MonetaryFactArgV2 list
+          SchemaRefHref: string option }
+
+    let buildDocumentV2 (args: BuildArgsV2) : XDocument =
+        let ctx =
+            context
+                (args.ContextId |> Domain.ContextId.value)
+                (args.Lei |> Domain.Lei.value)
+                args.Period
+                args.Dimensions
+
+        let u =
+            unitElem
+                (args.UnitId |> Domain.UnitId.value)
+                (args.MeasureQName |> Domain.MeasureQName.value)
+
+        let facts =
+            args.Facts
+            |> List.map (fun f ->
+                let rounded = roundWith f.Rounding f.Decimals f.Value
+                monetaryFact
+                    f.QName
+                    (f.ContextRef |> Domain.ContextId.value)
+                    (f.UnitRef |> Domain.UnitId.value)
+                    f.Decimals
+                    rounded
+                |> box)
+
+        let root =
+            elem
+                (Ns.xbrli + "xbrl")
+                [ attr (XNamespace.Xmlns + "xbrli") (string Ns.xbrli)
+                  attr (XNamespace.Xmlns + "xbrldi") (string Ns.xbrldi)
+                  attr (XNamespace.Xmlns + "iso4217") (string Ns.iso4217)
+                  attr (XNamespace.Xmlns + "jppfs_cor") (string Ns.jppfs)
+                  attr (XNamespace.Xmlns + "jpcrp_cor") (string Ns.jpcrp)
+                  attr (XNamespace.Xmlns + "jpdei_cor") (string Ns.jpdei)
+                  attr (XNamespace.Xmlns + "link") (string Ns.link)
+                  attr (XNamespace.Xmlns + "xlink") (string Ns.xlink)
+                  match args.SchemaRefHref with
+                  | Some href ->
+                      box (
+                          elem
+                              (Ns.link + "schemaRef")
+                              [ attr (Ns.xlink + "type") "simple"
+                                attr (Ns.xlink + "href") (toHttps href) ]
+                      )
+                  | None ->
+                      box (
+                          elem
+                              (Ns.link + "schemaRef")
+                              [ attr (Ns.xlink + "type") "simple"
+                                attr
+                                    (Ns.xlink + "href")
+                                    "https://disclosure.edinet-fsa.go.jp/taxonomy/jppfs/2020-11-01/jppfs_cor_2020-11-01.xsd" ]
+                      )
+                  box ctx
+                  box u
+                  yield! facts ]
+
+        XDocument(root)
+
     /// Namespace のプレフィックスを外部から与えて文書を生成
     let buildDocumentWithNamespaces (prefixes: PrefixMap) (args: BuildArgs) =
         let ctx =
@@ -556,12 +682,6 @@ module InstanceBuilder =
 
                 monetaryFact f.QName f.ContextRef f.UnitRef f.Decimals rounded
                 |> box)
-
-        let toHttps (url: string) =
-            if url.StartsWith("http://disclosure.edinet-fsa.go.jp") then
-                "https://" + url.Substring("http://".Length)
-            else
-                url
 
         let schemaRefHref =
             args.SchemaRefHref
@@ -1009,12 +1129,6 @@ module InstanceBuilder =
                 |> List.sortBy fst
                 |> List.map snd
 
-            let toHttps (url: string) =
-                if url.StartsWith("http://disclosure.edinet-fsa.go.jp") then
-                    "https://" + url.Substring("http://".Length)
-                else
-                    url
-
             let schemaRefHref =
                 b.SchemaRefHref
                 |> Option.map toHttps
@@ -1043,3 +1157,9 @@ module InstanceBuilder =
                       yield! b.Facts |> List.map box ]
 
             XDocument(root)
+
+    /// 型付き引数での検証つきビルド（追加の構文検査は Validation に委譲）
+    let tryBuildDocumentV2 (args: BuildArgsV2) : Result<XDocument, Validation.ValidationError list> =
+        let doc = buildDocumentV2 args
+        let errs = Validation.validateDocument doc
+        if List.isEmpty errs then Ok doc else Error errs
